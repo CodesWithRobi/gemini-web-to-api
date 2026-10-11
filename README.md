@@ -79,7 +79,7 @@
 docker run -d -p 4981:4981 \
   -e GEMINI_COOKIES="your_complete_cookie_header" \
   -e GEMINI_AUTH_USER="2" \
-  -e GEMINI_REFRESH_INTERVAL=30 \
+  -e GEMINI_REFRESH_INTERVAL=1440 \
   -e GEMINI_MAX_RETRIES=3 \
   -e GEMINI_TEMPORARY=false \
   -e APP_ENV=production \
@@ -132,7 +132,7 @@ cd gemini-web-to-api
    ```env
    GEMINI_COOKIES=your_complete_cookie_header
    GEMINI_AUTH_USER=2
-   GEMINI_REFRESH_INTERVAL=30
+   GEMINI_REFRESH_INTERVAL=1440
    GEMINI_MAX_RETRIES=3
    GEMINI_TEMPORARY=false
    APP_ENV=production
@@ -198,13 +198,26 @@ See [Music generation](docs/music.md) and the [OpenAI](examples/openai_music_cli
 | ------------------------- | -------- | ------- | ---------------------------------------------------------------- |
 | `GEMINI_COOKIES`          | ✅ Yes   | —       | Complete Cookie request header copied from the Gemini Web tab    |
 | `GEMINI_AUTH_USER`        | ❌ No    | —       | Google account slot from the Gemini URL, e.g. `2` for `/u/2/app` |
-| `GEMINI_REFRESH_INTERVAL` | ❌ No    | `30`    | Cookie rotation interval (minutes)                               |
+| `GEMINI_REFRESH_INTERVAL` | ❌ No    | `1440`  | Cookie rotation interval in minutes (minimum `10`), see below    |
 | `GEMINI_MAX_RETRIES`      | ❌ No    | `3`     | Max retry attempts when an API call fails                        |
 | `GEMINI_TEMPORARY`        | ❌ No    | `false` | Enable stateless/incognito mode for all requests                 |
 | `PORT`                    | ❌ No    | `4981`  | Server port                                                      |
 | `RATE_LIMIT_ENABLED`      | ❌ No    | `false` | Enable or disable rate limiting                                  |
 | `RATE_LIMIT_WINDOW_MS`    | ❌ No    | `60000` | Rate limit time window in milliseconds                           |
 | `RATE_LIMIT_MAX_REQUESTS` | ❌ No    | `10`    | Maximum number of requests allowed per time window               |
+
+### Avoiding Gemini blocks (`GEMINI_REFRESH_INTERVAL`)
+
+The server periodically rotates the `__Secure-1PSIDTS` cookie and refreshes the
+Gemini session token to keep it alive. Doing this too often looks automated, and
+Google may answer with `429`, "unusual traffic" pages or force you to sign in again.
+
+- The default is **1440 minutes (24h)**. Values below **10** are raised to 10; `0` or
+  negative values fall back to the default.
+- If you still get blocked, keep the default (or go higher) and also keep
+  `RATE_LIMIT_ENABLED=true` with a modest `RATE_LIMIT_MAX_REQUESTS`.
+- If the session starts expiring between rotations (logs show
+  `marking client unhealthy`), lower it again or copy a fresh cookie header.
 
 ### Configuration Priority
 

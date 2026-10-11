@@ -52,7 +52,10 @@ type ServerConfig struct {
 
 const (
 	defaultServerPort            = "4981"
-	defaultGeminiRefreshInterval = 5
+	defaultGeminiRefreshInterval = 1440
+	// Rotating cookies more often than this looks automated to Google and
+	// tends to get the session flagged or blocked.
+	minGeminiRefreshInterval = 10
 	defaultGeminiMaxRetries      = 3
 	defaultLogLevel              = "info"
 )
@@ -80,6 +83,11 @@ func New() (*Config, error) {
 	cfg.Gemini.Secure1PSID = cookieValue(cfg.Gemini.Cookies, "__Secure-1PSID")
 	cfg.Gemini.Secure1PSIDTS = cookieValue(cfg.Gemini.Cookies, "__Secure-1PSIDTS")
 	cfg.Gemini.RefreshInterval = getEnvInt("GEMINI_REFRESH_INTERVAL", defaultGeminiRefreshInterval)
+	if cfg.Gemini.RefreshInterval <= 0 {
+		cfg.Gemini.RefreshInterval = defaultGeminiRefreshInterval
+	} else if cfg.Gemini.RefreshInterval < minGeminiRefreshInterval {
+		cfg.Gemini.RefreshInterval = minGeminiRefreshInterval
+	}
 	cfg.Gemini.MaxRetries = getEnvInt("GEMINI_MAX_RETRIES", defaultGeminiMaxRetries)
 	cfg.Gemini.Temporary = getEnvBool("GEMINI_TEMPORARY", false)
 	if cfg.Gemini.AuthUser != "" {

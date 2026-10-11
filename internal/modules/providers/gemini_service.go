@@ -65,7 +65,7 @@ type CookieStore struct {
 }
 
 const (
-	defaultRefreshIntervalMinutes = 30
+	defaultRefreshIntervalMinutes = 1440
 )
 
 var (
