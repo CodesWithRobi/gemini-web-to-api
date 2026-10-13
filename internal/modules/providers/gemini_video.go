@@ -290,6 +290,9 @@ func safeProviderMessage(text string) string {
 func classifyVideoReply(text string) *VideoError {
 	lower := strings.ToLower(text)
 	switch {
+	case strings.Contains(lower, "a lot of requests") || strings.Contains(lower, "too many requests") ||
+		strings.Contains(lower, "try again later") || strings.Contains(lower, "try again in"):
+		return &VideoError{Code: VideoErrorQuota, Message: "Gemini is temporarily refusing video generation (capacity); retry shortly", ProviderMessage: safeProviderMessage(text)}
 	case strings.Contains(lower, "limit resets") || strings.Contains(lower, "reached your limit") ||
 		strings.Contains(lower, "video limit") || strings.Contains(lower, "usage limit"):
 		return &VideoError{Code: VideoErrorQuota, Message: "Gemini video generation limit reached; wait for the limit to reset", ProviderMessage: safeProviderMessage(text)}
