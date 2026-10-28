@@ -60,8 +60,11 @@ const (
 	defaultGeminiRefreshInterval = 1440
 	// Rotating cookies more often than this looks automated to Google and
 	// tends to get the session flagged or blocked.
-	minGeminiRefreshInterval         = 10
-	defaultGeminiVideoTimeoutMinutes = 20
+	minGeminiRefreshInterval = 10
+	// Only one video job runs at a time, so the timeout is also how long a
+	// stuck job keeps other video requests busy; the cap bounds that.
+	defaultGeminiVideoTimeoutMinutes = 10
+	maxGeminiVideoTimeoutMinutes     = 60
 	defaultGeminiMaxRetries          = 3
 	defaultLogLevel                  = "info"
 )
@@ -96,8 +99,10 @@ func New() (*Config, error) {
 		cfg.Gemini.RefreshInterval = minGeminiRefreshInterval
 	}
 	cfg.Gemini.VideoTimeoutMinutes = getEnvInt("GEMINI_VIDEO_TIMEOUT_MINUTES", defaultGeminiVideoTimeoutMinutes)
-	if cfg.Gemini.VideoTimeoutMinutes < 1 {
+	if cfg.Gemini.VideoTimeoutMinutes <= 0 {
 		cfg.Gemini.VideoTimeoutMinutes = defaultGeminiVideoTimeoutMinutes
+	} else if cfg.Gemini.VideoTimeoutMinutes > maxGeminiVideoTimeoutMinutes {
+		cfg.Gemini.VideoTimeoutMinutes = maxGeminiVideoTimeoutMinutes
 	}
 	cfg.Gemini.MaxRetries = getEnvInt("GEMINI_MAX_RETRIES", defaultGeminiMaxRetries)
 	cfg.Gemini.Temporary = getEnvBool("GEMINI_TEMPORARY", false)

@@ -670,6 +670,10 @@ const (
 	maxVideoPromptBytes = 8000
 	maxRetainedVideos   = 20
 	videoJobRetention   = time.Hour
+	// defaultVideoJobTimeout bounds a video job when GEMINI_VIDEO_TIMEOUT_MINUTES
+	// is not set. Only one job runs at a time, so it is also how long a stuck
+	// job can keep other video requests busy.
+	defaultVideoJobTimeout = 10 * time.Minute
 )
 
 var (
@@ -740,23 +744,21 @@ type videoJobStore struct {
 	wg     sync.WaitGroup
 }
 
+// newVideoJobStore runs jobs with generate, each bounded by timeout (zero means
+// defaultVideoJobTimeout).
 func newVideoJobStore(generate VideoGenerateFunc, timeout time.Duration) *videoJobStore {
 	root, cancel := context.WithCancel(context.Background())
 	if timeout <= 0 {
-		timeout = 20 * time.Minute
+		timeout = defaultVideoJobTimeout
 	}
 	return &videoJobStore{generate: generate, timeout: timeout, jobs: make(map[string]*videoJobEntry), root: root, cancel: cancel}
 }
 
 func (c *Client) videoJobStore() *videoJobStore {
 	c.videoJobsOnce.Do(func() {
-		timeout := 20 * time.Minute
-		if c.cfg != nil && c.cfg.Gemini.VideoTimeoutMinutes > 0 {
-			timeout = time.Duration(c.cfg.Gemini.VideoTimeoutMinutes) * time.Minute
-		}
 		c.videoJobs = newVideoJobStore(func(ctx context.Context, prompt, model string, aspect VideoAspectRatio) (*VideoResult, error) {
 			return c.GenerateVideo(ctx, prompt, model, aspect, 0)
-		}, timeout)
+		}, c.videoJobTimeout)
 	})
 	return c.videoJobs
 }
@@ -768,7 +770,7 @@ func NewVideoTestClient(models []ModelInfo, generate VideoGenerateFunc) *Client 
 	for i, model := range models {
 		c.cachedModels = append(c.cachedModels, geminiModel{ModelInfo: model, ModelID: fmt.Sprintf("%016d", i+1), Capacity: 1, CapacityField: 12, ModelNumber: i + 1})
 	}
-	c.videoJobsOnce.Do(func() { c.videoJobs = newVideoJobStore(generate) })
+	c.videoJobsOnce.Do(func() { c.videoJobs = newVideoJobStore(generate, 0) })
 	return c
 }
 

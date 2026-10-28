@@ -33,7 +33,6 @@ import (
 type Client struct {
 	httpClient             *req.Client
 	cookies                *CookieStore
-	cfg                    *configs.Config
 	configuredCookieHeader string // optional full browser Cookie header for rollout/session flags
 	authUser               string // Google multi-login slot used by the Gemini Web tab (for example "2")
 	at                     string
@@ -76,6 +75,9 @@ type Client struct {
 
 	videoJobsOnce sync.Once
 	videoJobs     *videoJobStore
+	// videoJobTimeout bounds one video job (GEMINI_VIDEO_TIMEOUT_MINUTES);
+	// zero means defaultVideoJobTimeout.
+	videoJobTimeout time.Duration
 }
 
 type CookieStore struct {
@@ -133,7 +135,7 @@ func newClient(cfg *configs.Config, log *zap.Logger, validate func(ctx context.C
 	return &Client{
 		httpClient:             client,
 		cookies:                cookies,
-		cfg:                    cfg,
+		videoJobTimeout:        time.Duration(cfg.Gemini.VideoTimeoutMinutes) * time.Minute,
 		configuredCookieHeader: strings.TrimSpace(cfg.Gemini.Cookies),
 		authUser:               strings.TrimSpace(cfg.Gemini.AuthUser),
 		autoRefresh:            true,
