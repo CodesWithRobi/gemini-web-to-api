@@ -184,6 +184,7 @@ Your Gemini Web To API is running at `http://localhost:4981` 🎉
 - 🎵 **Music Generation**: Gemini Web's music tool through `client.audio.speech` (OpenAI) and `-music` models (Gemini)
 - 🔢 **Token usage estimates**: Chat endpoints report plausible `usage` counts, streaming included, even though Gemini Web usually sends none — see [Token usage reporting](#token-usage-reporting)
 - 🧹 **Clean Output**: Web-UI citation artifacts (`[cite: N]`, `[cite: N, M]`, `[cite_start]` and `?code_reference` / `?code_stdout` code-fence suffixes) are stripped from response text on every endpoint
+- 🧱 **JSON Responses**: OpenAI `response_format` (`json_object` / `json_schema`) is asked for in the prompt, fenced or prose-wrapped replies are cleaned, and one repair attempt is made before falling back to the raw text
 
 See [Image generation and image inputs](docs/image-generation.md) for tested examples, limitations and security guidance.
 See [Video generation](docs/video-generation.md) for the video APIs and the [OpenAI](examples/openai_video_client.py) / [Gemini](examples/gemini_video_client.py) SDK examples.
@@ -313,6 +314,46 @@ are newline-separated. This is not the model's full chain of thought: Gemini
 Web does not send a verbatim trace over the wire, so no proxy can expose one.
 An older inline `<ctrl94>`/`<ctrl95>` trace format is still parsed as a
 fallback if it reappears.
+
+### JSON responses (`response_format`, OpenAI-compatible chat)
+
+`POST /openai/v1/chat/completions` accepts OpenAI's `response_format`, for both
+streaming and non-streaming requests:
+
+```json
+{
+  "model": "gemini-3.6-flash",
+  "messages": [{"role": "user", "content": "Invent a person."}],
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "person",
+      "schema": {
+        "type": "object",
+        "properties": {"name": {"type": "string"}, "age": {"type": "integer"}},
+        "required": ["name", "age"]
+      }
+    }
+  }
+}
+```
+
+Gemini Web has no JSON mode, so this is best-effort:
+
+- The prompt asks for JSON only, with no code fences and no text around it.
+- A `json` markdown code fence and any prose around the JSON are stripped before
+  the reply is checked: `json_object` needs valid JSON that parses to an object,
+  `json_schema` also needs the requested top-level type and every required key
+  (deeper schema checks are not enforced). A reply that is broken as a whole is
+  never answered with one of the objects nested inside it.
+- A reply that does not match is sent back to Gemini **once** for a repair. That
+  is a second request on your Google account, so it never loops, with or without
+  tools: if the repair is still invalid, the raw reply is returned and a warning
+  is logged.
+- `{"type": "text"}` (the default) and unknown types are ignored. With tools, a
+  reply without a tool call carries its JSON in the bridge's `content`; when the
+  model calls a tool, the tool call is returned unchanged and JSON mode is
+  skipped, so a tool call is never re-asked for JSON.
 
 ### OpenAI SDK (Python)
 
